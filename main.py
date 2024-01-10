@@ -7,7 +7,6 @@ from datetime import datetime
 from collections import defaultdict
 import time
 
-
 def datetime_from_utc_timestamp_to_local(utc_timestamp_millis):
     now_timestamp = time.time()
     offset = datetime.fromtimestamp(now_timestamp) - datetime.utcfromtimestamp(now_timestamp)
@@ -28,7 +27,7 @@ def get_performances_from_movie(movie: dict):
     performances = movie["performances"]
     mapped_performances = []
     for performance in performances:
-        attributes = " ".join(attribute["name"] for attribute in performance["attributes"])
+        attributes = " ".join(sorted(attribute["name"] for attribute in performance["attributes"]))
         performance_time = performance["timeUtc"]
         performance_datetime = datetime_from_utc_timestamp_to_local(performance_time)
         performance_datetime_string = performance_datetime.strftime('%Y-%m-%d %H:%M:%S (%a)')
@@ -52,7 +51,6 @@ def get_movies_schedules_by_cinema(cinema_name_filter: str = None):
         movies = json_data["apiData"]["movies"]["items"].items()
         for _, movie in movies:
             mapped_performances = get_performances_from_movie(movie)
-            # movies_dict.setdefault(movie["title"].strip(), {})[cinema["name"]] = mapped_performances
             movies_dict[movie["title"]][cinema["name"]] = mapped_performances
 
     return movies_dict
