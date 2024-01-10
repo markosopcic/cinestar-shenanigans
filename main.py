@@ -1,9 +1,10 @@
-#/bin/python3
+#/usr/bin/env python3
 
 import requests
 import re
 import json
 from datetime import datetime
+from collections import defaultdict
 import time
 
 
@@ -20,47 +21,39 @@ def get_list_of_cinemas():
     json_data = json.loads(json_str)
 
     json_cinemas = json_data["apiData"]["cinemas"]["items"]
-    cinemas = []
-    for _, cinema in json_cinemas.items():
-        cinemas.append({"name": cinema["nameDisplay"], "url": cinema["website"]})
-
-    return cinemas
+    return [{"name": c["nameDisplay"], "url": c["website"]} for c in json_cinemas.values()]
 
 
 def get_performances_from_movie(movie: dict):
     performances = movie["performances"]
     mapped_performances = []
     for performance in performances:
-        attributes = [attribute["name"] for attribute in performance["attributes"]]
+        attributes = " ".join(attribute["name"] for attribute in performance["attributes"])
         performance_time = performance["timeUtc"]
         performance_datetime = datetime_from_utc_timestamp_to_local(performance_time)
-        performance_datetime_string = performance_datetime.strftime('%Y-%m-%d %H:%M:%S')
+        performance_datetime_string = performance_datetime.strftime('%Y-%m-%d %H:%M:%S (%a)')
 
         mapped_performances.append({"datetime": performance_datetime_string, "attributes": attributes})
 
-    return mapped_performances
+    return sorted(mapped_performances, key=lambda d: d['datetime'])
 
 
 def get_movies_schedules_by_cinema(cinema_name_filter: str = None):
     cinemas = get_list_of_cinemas()
 
-    if cinema_name_filter is not None:
+    if cinema_name_filter:
         cinemas = [cinema for cinema in cinemas if cinema_name_filter.lower() in cinema["name"].lower()]
 
-    movies_dict = {}
+    movies_dict = defaultdict(lambda: defaultdict(dict))
     for cinema in cinemas:
         body = requests.get(cinema["url"]).text
         json_str = re.findall("var pmkinoFrontVars = (.*);", body)[0]
         json_data = json.loads(json_str)
         movies = json_data["apiData"]["movies"]["items"].items()
         for _, movie in movies:
-            title = movie["title"]
-
             mapped_performances = get_performances_from_movie(movie)
-
-            if title not in movies_dict:
-                movies_dict[title] = []
-            movies_dict[title].append((cinema["name"], mapped_performances))
+            # movies_dict.setdefault(movie["title"].strip(), {})[cinema["name"]] = mapped_performances
+            movies_dict[movie["title"]][cinema["name"]] = mapped_performances
 
     return movies_dict
 
